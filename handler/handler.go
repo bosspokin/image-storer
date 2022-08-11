@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/bosspokin/image-storer/model"
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -37,11 +38,60 @@ func (handler *Handler) SignUp(ctx *gin.Context) {
 }
 
 func (handler *Handler) Login(ctx *gin.Context) {
+	var user model.User
+	var userRecord model.User
 
+	if err := ctx.ShouldBindJSON(&user); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "bad request",
+		})
+		return
+	}
+
+	if result := handler.db.Where("username = ?", user.Username).First(&userRecord); result.Error != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": result.Error.Error(),
+		})
+		return
+	}
+
+	if user.Password != userRecord.Password {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": "incorrect password",
+		})
+		return
+	}
+
+	session := sessions.Default(ctx)
+	session.Set(userRecord.Username, userRecord.Username)
+
+	if err := session.Save(); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+	}
 }
 
 func (handler *Handler) Logout(ctx *gin.Context) {
+	username := ctx.Param("username")
+	session := sessions.Default(ctx)
 
+	user := session.Get(username)
+
+	if user == nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "User is not logged in",
+		})
+	}
+
+	session.Delete(username)
+	if err := session.Save(); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": "cannot logout",
+		})
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{})
 }
 
 func (handler *Handler) UploadImage(ctx *gin.Context) {
