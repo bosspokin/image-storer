@@ -9,7 +9,7 @@ import (
 type User struct {
 	Username  string `gorm:"primaryKey"`
 	Password  string
-	Files     []File
+	Files     []File `gorm:"foreignKey:Username"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt `gorm:"index"`
