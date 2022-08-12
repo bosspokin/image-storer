@@ -1,9 +1,10 @@
 package main
 
 import (
+	"github.com/bosspokin/image-storer/entity"
 	"github.com/bosspokin/image-storer/global"
 	"github.com/bosspokin/image-storer/handler"
-	"github.com/bosspokin/image-storer/model"
+	"github.com/bosspokin/image-storer/middleware"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
@@ -17,7 +18,7 @@ func main() {
 		panic("failed to connect database")
 	}
 
-	db.AutoMigrate(&model.File{}, &model.User{})
+	db.AutoMigrate(&entity.File{}, &entity.User{})
 
 	r := gin.Default()
 
@@ -27,7 +28,11 @@ func main() {
 
 	r.POST("/signup", handler.SignUp)
 	r.GET("/login", handler.Login)
-	r.GET("/logout/:username", handler.Logout)
+
+	protected := r.Group("")
+	protected.Use(middleware.Auth)
+	protected.GET("/logout", handler.Logout)
+	protected.POST("/upload", handler.UploadImage)
 
 	// protected := r.Group("")
 	// protected.Use()

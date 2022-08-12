@@ -1,9 +1,9 @@
 package model
 
-import "gorm.io/gorm"
+import "mime/multipart"
 
 type File struct {
-	gorm.Model
-	Filename string `json:"filename"`
-	Username string `json:"username"`
+	Filename string         `json:"filename" form:"filename"`
+	File     multipart.File `json:"file" form:"file"`
+	URL      string         `json:"url"`
 }
