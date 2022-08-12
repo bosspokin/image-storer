@@ -2,6 +2,7 @@ package helper
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/bosspokin/image-storer/config"
@@ -32,7 +33,7 @@ func UploadImage(file model.File) (string, error) {
 	return uploadParam.SecureURL, nil
 }
 
-func GetImage(input interface{}) (string, error) {
+func RenameImage(oldPublicID, newPublicID string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -41,7 +42,11 @@ func GetImage(input interface{}) (string, error) {
 		return "", err
 	}
 
-	uploadParam, err := cld.Upload.Upload(ctx, input, uploader.UploadParams{Folder: config.EnvCloudUploadFolder()})
+	uploadParam, err := cld.Upload.Rename(ctx, uploader.RenameParams{
+		FromPublicID: fmt.Sprintf("files/%s", oldPublicID),
+		ToPublicID:   fmt.Sprintf("files/%s", newPublicID),
+	})
+
 	if err != nil {
 		return "", err
 	}

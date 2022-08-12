@@ -120,7 +120,6 @@ func (handler *Handler) UploadImage(ctx *gin.Context) {
 
 	uploadUrl, err := helper.UploadImage(file)
 	if err != nil {
-		fmt.Println("error of helper")
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),
 		})
@@ -148,8 +147,60 @@ func (handler *Handler) UploadImage(ctx *gin.Context) {
 	})
 }
 
-func (handler *Handler) ChangeImageName(ctx *gin.Context) {
+func (handler *Handler) RenameImage(ctx *gin.Context) {
+	renameReq := make(map[string]string)
+	username := ctx.Request.Header[http.CanonicalHeaderKey("username")][0]
 
+	if err := ctx.ShouldBindJSON(&renameReq); err != nil {
+		fmt.Println(err)
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "bad request",
+		})
+
+		return
+	}
+
+	var file entity.File
+
+	if result := handler.db.Where("filename = ?", renameReq["old"]).First(&file); result.Error != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": result.Error.Error(),
+		})
+
+		return
+	}
+
+	if file.Username != username {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": fmt.Sprintf("the file %s does not belong to the user %s", file.Filename, username),
+		})
+
+		return
+	}
+
+	uploadUrl, err := helper.RenameImage(renameReq["old"], renameReq["new"])
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+
+		return
+	}
+
+	file.URL = uploadUrl
+	file.Filename = renameReq["new"]
+
+	if result := handler.db.Save(&file); result.Error != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": result.Error.Error(),
+		})
+
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"url": uploadUrl,
+	})
 }
 
 func (handler *Handler) DeleteImage(ctx *gin.Context) {
