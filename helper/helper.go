@@ -53,3 +53,19 @@ func RenameImage(oldPublicID, newPublicID string) (string, error) {
 
 	return uploadParam.SecureURL, nil
 }
+
+func DeleteImage(publicID string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	cld, err := cloudinary.NewFromParams(config.EnvCloudName(), config.EnvCloudAPIKey(), config.EnvCloudAPISecret())
+	if err != nil {
+		return err
+	}
+
+	_, err = cld.Upload.Destroy(ctx, uploader.DestroyParams{
+		PublicID: fmt.Sprintf("files/%s", publicID),
+	})
+
+	return err
+}

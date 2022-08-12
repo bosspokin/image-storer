@@ -34,7 +34,8 @@ func main() {
 	protected.GET("/logout", handler.Logout)
 	protected.GET("/images", handler.ListImages)
 	protected.POST("/upload", handler.UploadImage)
-	protected.POST("/rename", handler.RenameImage)
+	protected.PATCH("/rename", handler.RenameImage)
+	protected.DELETE("/image/:id", handler.DeleteImage)
 
 	// protected := r.Group("")
 	// protected.Use()

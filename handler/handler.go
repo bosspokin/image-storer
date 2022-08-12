@@ -3,6 +3,7 @@ package handler
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/bosspokin/image-storer/entity"
 	"github.com/bosspokin/image-storer/helper"
@@ -204,7 +205,54 @@ func (handler *Handler) RenameImage(ctx *gin.Context) {
 }
 
 func (handler *Handler) DeleteImage(ctx *gin.Context) {
+	idParam := ctx.Param("id")
+	id, err := strconv.Atoi(idParam)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
 
+		return
+	}
+
+	// get old record
+	var file entity.File
+	if result := handler.db.First(&file, id); result.Error != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": result.Error.Error(),
+		})
+
+		return
+	}
+
+	username := ctx.Request.Header[http.CanonicalHeaderKey("username")][0]
+
+	if file.Username != username {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": fmt.Sprintf("the file %s does not belong to the user %s", file.Filename, username),
+		})
+
+		return
+	}
+
+	err = helper.DeleteImage(file.Filename)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+
+		return
+	}
+
+	if result := handler.db.Delete(&file); result.Error != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": result.Error.Error(),
+		})
+
+		return
+	}
+
+	ctx.Status(http.StatusOK)
 }
 
 func (handler *Handler) ListImages(ctx *gin.Context) {
