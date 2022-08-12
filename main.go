@@ -32,6 +32,7 @@ func main() {
 	protected := r.Group("")
 	protected.Use(middleware.Auth)
 	protected.GET("/logout", handler.Logout)
+	protected.GET("/images", handler.ListImages)
 	protected.POST("/upload", handler.UploadImage)
 
 	// protected := r.Group("")

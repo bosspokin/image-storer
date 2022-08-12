@@ -148,7 +148,7 @@ func (handler *Handler) UploadImage(ctx *gin.Context) {
 	})
 }
 
-func (handler *Handler) EditImageName(ctx *gin.Context) {
+func (handler *Handler) ChangeImageName(ctx *gin.Context) {
 
 }
 
@@ -157,5 +157,26 @@ func (handler *Handler) DeleteImage(ctx *gin.Context) {
 }
 
 func (handler *Handler) ListImages(ctx *gin.Context) {
+	username := ctx.Request.Header[http.CanonicalHeaderKey("username")][0]
+	var files []entity.File
 
+	if result := handler.db.Where("username = ?", username).Find(&files); result.Error != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": result.Error.Error(),
+		})
+
+		return
+	}
+
+	filesRes := make([]model.File, len(files))
+
+	if err := copier.Copy(&filesRes, &files); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+
+		return
+	}
+
+	ctx.JSON(http.StatusOK, filesRes)
 }
