@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/bosspokin/image-storer/dto"
 	"github.com/bosspokin/image-storer/entity"
 	"github.com/bosspokin/image-storer/helper"
-	"github.com/bosspokin/image-storer/model"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/copier"
@@ -23,7 +23,7 @@ func NewHandler(db *gorm.DB) *Handler {
 }
 
 func (handler *Handler) SignUp(ctx *gin.Context) {
-	var user model.User
+	var user dto.User
 
 	if err := ctx.ShouldBindJSON(&user); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
@@ -56,7 +56,7 @@ func (handler *Handler) SignUp(ctx *gin.Context) {
 }
 
 func (handler *Handler) Login(ctx *gin.Context) {
-	var user model.User
+	var user dto.User
 	var userRecord entity.User
 
 	if err := ctx.ShouldBindJSON(&user); err != nil {
@@ -116,7 +116,7 @@ func (handler *Handler) Logout(ctx *gin.Context) {
 func (handler *Handler) UploadImage(ctx *gin.Context) {
 	formfile, _, err := ctx.Request.FormFile("file")
 	filename := ctx.PostForm("filename")
-	file := model.File{
+	file := dto.File{
 		Filename: filename,
 		File:     formfile,
 	}
@@ -159,11 +159,21 @@ func (handler *Handler) UploadImage(ctx *gin.Context) {
 }
 
 func (handler *Handler) RenameImage(ctx *gin.Context) {
-	renameReq := make(map[string]string)
+	renameReq := dto.RenameFile{}
+	idParam := ctx.Param("id")
+	id, err := strconv.Atoi(idParam)
+
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "bad request",
+		})
+
+		return
+	}
+
 	username := ctx.Request.Header[http.CanonicalHeaderKey("username")][0]
 
 	if err := ctx.ShouldBindJSON(&renameReq); err != nil {
-		fmt.Println(err)
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"error": "bad request",
 		})
@@ -173,7 +183,7 @@ func (handler *Handler) RenameImage(ctx *gin.Context) {
 
 	var file entity.File
 
-	if result := handler.db.Where("filename = ?", renameReq["old"]).First(&file); result.Error != nil {
+	if result := handler.db.First(&file, id); result.Error != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error": result.Error.Error(),
 		})
@@ -189,7 +199,7 @@ func (handler *Handler) RenameImage(ctx *gin.Context) {
 		return
 	}
 
-	uploadUrl, err := helper.RenameImage(renameReq["old"], renameReq["new"])
+	uploadUrl, err := helper.RenameImage(file.Filename, renameReq.New)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),
@@ -199,7 +209,7 @@ func (handler *Handler) RenameImage(ctx *gin.Context) {
 	}
 
 	file.URL = uploadUrl
-	file.Filename = renameReq["new"]
+	file.Filename = renameReq.New
 
 	if result := handler.db.Save(&file); result.Error != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
@@ -277,7 +287,7 @@ func (handler *Handler) ListImages(ctx *gin.Context) {
 		return
 	}
 
-	filesRes := make([]model.File, len(files))
+	filesRes := make([]dto.File, len(files))
 
 	if err := copier.Copy(&filesRes, &files); err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{

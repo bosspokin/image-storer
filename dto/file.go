@@ -1,4 +1,4 @@
-package model
+package dto
 
 import "mime/multipart"
 
@@ -10,6 +10,5 @@ type File struct {
 }
 
 type RenameFile struct {
-	Old string `json:"old"`
 	New string `json:"new"`
 }
