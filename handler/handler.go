@@ -27,13 +27,23 @@ func (handler *Handler) SignUp(ctx *gin.Context) {
 
 	if err := ctx.ShouldBindJSON(&user); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": "bad request",
+			"error": err.Error(),
 		})
 		return
 	}
 
 	userRec := entity.User{}
 	copier.Copy(&userRec, &user)
+	hash, err := helper.HashPassword(userRec.Password)
+
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	userRec.Password = hash
 
 	if result := handler.db.Create(&userRec); result.Error != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
@@ -51,7 +61,7 @@ func (handler *Handler) Login(ctx *gin.Context) {
 
 	if err := ctx.ShouldBindJSON(&user); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": "bad request",
+			"error": err.Error(),
 		})
 		return
 	}
@@ -63,7 +73,7 @@ func (handler *Handler) Login(ctx *gin.Context) {
 		return
 	}
 
-	if user.Password != userRecord.Password {
+	if !helper.CheckPasswordHash(user.Password, userRecord.Password) {
 		ctx.JSON(http.StatusUnauthorized, gin.H{
 			"error": "incorrect password",
 		})
@@ -244,7 +254,7 @@ func (handler *Handler) DeleteImage(ctx *gin.Context) {
 		return
 	}
 
-	if result := handler.db.Delete(&file); result.Error != nil {
+	if result := handler.db.Unscoped().Delete(&file); result.Error != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error": result.Error.Error(),
 		})
