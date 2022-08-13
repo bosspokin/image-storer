@@ -1,0 +1,108 @@
+definitions:
+  dto.RenameFile:
+    properties:
+      new:
+        type: string
+    type: object
+  dto.User:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    type: object
+info:
+  contact: {}
+  title: Image Storer
+paths:
+  /image:
+    post:
+      operationId: UploadImage
+      parameters:
+      - description: username of the user that wants to upload image
+        in: header
+        name: username
+        required: true
+        type: string
+      - description: the file that the user wants to upload
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: the filename of the corresponding file that the user wants to
+          upload
+        in: formData
+        name: filename
+        required: true
+        type: string
+      responses: {}
+      summary: uploads new image to server
+  /image/:id:
+    delete:
+      operationId: DeleteImage
+      parameters:
+      - description: username of the user that wants to delete his/her image
+        in: header
+        name: username
+        required: true
+        type: string
+      responses: {}
+      summary: deletes existing image of a user
+    patch:
+      consumes:
+      - application/json
+      operationId: RenameImage
+      parameters:
+      - description: username of the user that wants to rename his/her image
+        in: header
+        name: username
+        required: true
+        type: string
+      - description: new file name
+        in: body
+        name: RenameFile
+        required: true
+        schema:
+          $ref: '#/definitions/dto.RenameFile'
+      responses: {}
+      summary: renames existing image of a user
+  /images:
+    get:
+      operationId: ListImages
+      parameters:
+      - description: username of the user that wants to list his/her image(s)
+        in: header
+        name: username
+        required: true
+        type: string
+      responses: {}
+      summary: lists images that belong to the user
+  /login:
+    get:
+      consumes:
+      - application/json
+      operationId: Login
+      parameters:
+      - description: the user to be logged in
+        in: body
+        name: User
+        required: true
+        schema:
+          $ref: '#/definitions/dto.User'
+      responses: {}
+      summary: logs user in
+  /signup:
+    post:
+      consumes:
+      - application/json
+      operationId: SignUp
+      parameters:
+      - description: new user
+        in: body
+        name: User
+        required: true
+        schema:
+          $ref: '#/definitions/dto.User'
+      responses: {}
+      summary: registers new user
+swagger: "2.0"

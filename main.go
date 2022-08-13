@@ -9,7 +9,14 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
+
+	swaggerfiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+
+	_ "github.com/bosspokin/image-storer/docs"
 )
+
+// @title Image Storer
 
 func main() {
 	db, err := db.InitNewGormStore()
@@ -43,5 +50,6 @@ func main() {
 	// protected.Use()
 	// protected.GET("/logout/:username", handler.Logout)
 
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
 	r.Run()
 }

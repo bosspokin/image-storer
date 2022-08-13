@@ -23,6 +23,11 @@ func NewHandler(imageService service.ImageService, userService service.UserServi
 	}
 }
 
+// @summary registers new user
+// @id SignUp
+// @accept json
+// @param User body dto.User true "new user"
+// @router /signup [post]
 func (handler *Handler) SignUp(ctx *gin.Context) {
 	var user dto.User
 
@@ -48,6 +53,11 @@ func (handler *Handler) SignUp(ctx *gin.Context) {
 	ctx.JSON(http.StatusCreated, gin.H{})
 }
 
+// @summary logs user in
+// @id Login
+// @accept json
+// @param User body dto.User true "the user to be logged in"
+// @router /login [get]
 func (handler *Handler) Login(ctx *gin.Context) {
 	var req dto.User
 
@@ -70,6 +80,10 @@ func (handler *Handler) Login(ctx *gin.Context) {
 	}
 }
 
+// @summary logs user out
+// @id Logout
+// @param username header string true "username of the user that wants to logout"
+// @router /image [post]
 func (handler *Handler) Logout(ctx *gin.Context) {
 	username := ctx.Request.Header[http.CanonicalHeaderKey("username")][0]
 
@@ -85,6 +99,12 @@ func (handler *Handler) Logout(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{})
 }
 
+// @summary uploads new image to server
+// @id UploadImage
+// @param username header string true "username of the user that wants to upload image"
+// @param file formData file true "the file that the user wants to upload"
+// @param filename formData string true "the filename of the corresponding file that the user wants to upload"
+// @router /image [post]
 func (handler *Handler) UploadImage(ctx *gin.Context) {
 	formfile, _, err := ctx.Request.FormFile("file")
 	username := ctx.Request.Header[http.CanonicalHeaderKey("username")][0]
@@ -118,6 +138,12 @@ func (handler *Handler) UploadImage(ctx *gin.Context) {
 	})
 }
 
+// @summary renames existing image of a user
+// @id RenameImage
+// @accept json
+// @param username header string true "username of the user that wants to rename his/her image"
+// @param RenameFile body dto.RenameFile true "new file name"
+// @router /image/:id [patch]
 func (handler *Handler) RenameImage(ctx *gin.Context) {
 	renameReq := dto.RenameFile{}
 	idParam := ctx.Param("id")
@@ -154,6 +180,10 @@ func (handler *Handler) RenameImage(ctx *gin.Context) {
 	})
 }
 
+// @summary deletes existing image of a user
+// @id DeleteImage
+// @param username header string true "username of the user that wants to delete his/her image"
+// @router /image/:id [delete]
 func (handler *Handler) DeleteImage(ctx *gin.Context) {
 	idParam := ctx.Param("id")
 	username := ctx.Request.Header[http.CanonicalHeaderKey("username")][0]
@@ -179,6 +209,10 @@ func (handler *Handler) DeleteImage(ctx *gin.Context) {
 	ctx.Status(http.StatusOK)
 }
 
+// @summary lists images that belong to the user
+// @id ListImages
+// @param username header string true "username of the user that wants to list his/her image(s)"
+// @router /images [get]
 func (handler *Handler) ListImages(ctx *gin.Context) {
 	username := ctx.Request.Header[http.CanonicalHeaderKey("username")][0]
 
