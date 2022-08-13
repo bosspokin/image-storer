@@ -5,6 +5,7 @@ import (
 	"github.com/bosspokin/image-storer/db"
 	"github.com/bosspokin/image-storer/handler"
 	"github.com/bosspokin/image-storer/middleware"
+	"github.com/bosspokin/image-storer/service"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
@@ -21,7 +22,10 @@ func main() {
 
 	store := cookie.NewStore([]byte(config.EnvSecretKey()))
 	r.Use(sessions.Sessions("mysession", store))
-	handler := handler.NewHandler(db)
+
+	imageService := service.NewImageService(db)
+	userService := service.NewUserService(db)
+	handler := handler.NewHandler(imageService, userService)
 
 	public := r.Group("")
 	public.POST("/signup", handler.SignUp)

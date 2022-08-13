@@ -1,25 +1,26 @@
 package handler
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 
 	"github.com/bosspokin/image-storer/dto"
 	"github.com/bosspokin/image-storer/entity"
-	"github.com/bosspokin/image-storer/helper"
-	"github.com/gin-contrib/sessions"
+	"github.com/bosspokin/image-storer/service"
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/copier"
-	"gorm.io/gorm"
 )
 
 type Handler struct {
-	db *gorm.DB
+	imageService service.ImageService
+	userService  service.UserService
 }
 
-func NewHandler(db *gorm.DB) *Handler {
-	return &Handler{db: db}
+func NewHandler(imageService service.ImageService, userService service.UserService) *Handler {
+	return &Handler{
+		imageService: imageService,
+		userService:  userService,
+	}
 }
 
 func (handler *Handler) SignUp(ctx *gin.Context) {
@@ -34,21 +35,13 @@ func (handler *Handler) SignUp(ctx *gin.Context) {
 
 	userRec := entity.User{}
 	copier.Copy(&userRec, &user)
-	hash, err := helper.HashPassword(userRec.Password)
 
+	err := handler.userService.SignUp(userRec)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),
 		})
-		return
-	}
 
-	userRec.Password = hash
-
-	if result := handler.db.Create(&userRec); result.Error != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error": result.Error.Error(),
-		})
 		return
 	}
 
@@ -56,56 +49,35 @@ func (handler *Handler) SignUp(ctx *gin.Context) {
 }
 
 func (handler *Handler) Login(ctx *gin.Context) {
-	var user dto.User
-	var userRecord entity.User
+	var req dto.User
 
-	if err := ctx.ShouldBindJSON(&user); err != nil {
+	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
 		})
 		return
 	}
 
-	if result := handler.db.Where("username = ?", user.Username).First(&userRecord); result.Error != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error": result.Error.Error(),
-		})
-		return
-	}
+	entityUser := entity.User{}
+	copier.Copy(&entityUser, &req)
 
-	if !helper.CheckPasswordHash(user.Password, userRecord.Password) {
-		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"error": "incorrect password",
-		})
-		return
-	}
-
-	session := sessions.Default(ctx)
-	session.Set(userRecord.Username, userRecord.Username)
-
-	if err := session.Save(); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
+	err := handler.userService.Login(ctx, entityUser)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
 		})
+		return
 	}
 }
 
 func (handler *Handler) Logout(ctx *gin.Context) {
 	username := ctx.Request.Header[http.CanonicalHeaderKey("username")][0]
-	session := sessions.Default(ctx)
 
-	// user := session.Get(username)
+	err := handler.userService.Logout(ctx, username)
 
-	// if user == nil {
-	// 	ctx.JSON(http.StatusBadRequest, gin.H{
-	// 		"error": "User is not logged in",
-	// 	})
-	// }
-
-	session.Delete(username)
-	if err := session.Save(); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error": "cannot logout",
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
 		})
 		return
 	}
@@ -115,41 +87,29 @@ func (handler *Handler) Logout(ctx *gin.Context) {
 
 func (handler *Handler) UploadImage(ctx *gin.Context) {
 	formfile, _, err := ctx.Request.FormFile("file")
-	filename := ctx.PostForm("filename")
-	file := dto.File{
-		Filename: filename,
-		File:     formfile,
-	}
-
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
-
-		return
-	}
-
-	uploadUrl, err := helper.UploadImage(file)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
-
-		return
-	}
-
 	username := ctx.Request.Header[http.CanonicalHeaderKey("username")][0]
 
-	fileRecord := entity.File{
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+
+		return
+	}
+
+	filename := ctx.PostForm("filename")
+	file := entity.File{
 		Filename: filename,
-		URL:      uploadUrl,
+		File:     formfile,
 		Username: username,
 	}
 
-	if result := handler.db.Create(&fileRecord); result.Error != nil {
+	uploadUrl, err := handler.imageService.UploadImage(username, file)
+	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error": result.Error.Error(),
+			"error": err.Error(),
 		})
+
 		return
 	}
 
@@ -161,6 +121,7 @@ func (handler *Handler) UploadImage(ctx *gin.Context) {
 func (handler *Handler) RenameImage(ctx *gin.Context) {
 	renameReq := dto.RenameFile{}
 	idParam := ctx.Param("id")
+	username := ctx.Request.Header[http.CanonicalHeaderKey("username")][0]
 	id, err := strconv.Atoi(idParam)
 
 	if err != nil {
@@ -170,8 +131,6 @@ func (handler *Handler) RenameImage(ctx *gin.Context) {
 
 		return
 	}
-
-	username := ctx.Request.Header[http.CanonicalHeaderKey("username")][0]
 
 	if err := ctx.ShouldBindJSON(&renameReq); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
@@ -181,81 +140,25 @@ func (handler *Handler) RenameImage(ctx *gin.Context) {
 		return
 	}
 
-	var file entity.File
-
-	if result := handler.db.First(&file, id); result.Error != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error": result.Error.Error(),
-		})
-
-		return
-	}
-
-	if file.Username != username {
-		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"error": fmt.Sprintf("the file %s does not belong to the user %s", file.Filename, username),
-		})
-
-		return
-	}
-
-	uploadUrl, err := helper.RenameImage(file.Filename, renameReq.New)
+	newUrl, err := handler.imageService.RenameImage(username, uint(id), renameReq.New)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),
-		})
-
-		return
-	}
-
-	file.URL = uploadUrl
-	file.Filename = renameReq.New
-
-	if result := handler.db.Save(&file); result.Error != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error": result.Error.Error(),
 		})
 
 		return
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
-		"url": uploadUrl,
+		"url": newUrl,
 	})
 }
 
 func (handler *Handler) DeleteImage(ctx *gin.Context) {
 	idParam := ctx.Param("id")
-	id, err := strconv.Atoi(idParam)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
-
-		return
-	}
-
-	// get old record
-	var file entity.File
-	if result := handler.db.First(&file, id); result.Error != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error": result.Error.Error(),
-		})
-
-		return
-	}
-
 	username := ctx.Request.Header[http.CanonicalHeaderKey("username")][0]
+	id, err := strconv.Atoi(idParam)
 
-	if file.Username != username {
-		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"error": fmt.Sprintf("the file %s does not belong to the user %s", file.Filename, username),
-		})
-
-		return
-	}
-
-	err = helper.DeleteImage(file.Filename)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),
@@ -264,9 +167,10 @@ func (handler *Handler) DeleteImage(ctx *gin.Context) {
 		return
 	}
 
-	if result := handler.db.Unscoped().Delete(&file); result.Error != nil {
+	err = handler.imageService.DeleteImage(username, uint(id))
+	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error": result.Error.Error(),
+			"error": err.Error(),
 		})
 
 		return
@@ -277,11 +181,12 @@ func (handler *Handler) DeleteImage(ctx *gin.Context) {
 
 func (handler *Handler) ListImages(ctx *gin.Context) {
 	username := ctx.Request.Header[http.CanonicalHeaderKey("username")][0]
-	var files []entity.File
 
-	if result := handler.db.Where("username = ?", username).Find(&files); result.Error != nil {
+	files, err := handler.imageService.ListImages(username)
+
+	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error": result.Error.Error(),
+			"error": err.Error(),
 		})
 
 		return

@@ -6,12 +6,12 @@ import (
 	"time"
 
 	"github.com/bosspokin/image-storer/config"
-	"github.com/bosspokin/image-storer/dto"
+	"github.com/bosspokin/image-storer/entity"
 	"github.com/cloudinary/cloudinary-go"
 	"github.com/cloudinary/cloudinary-go/api/uploader"
 )
 
-func UploadImage(file dto.File) (string, error) {
+func UploadImage(file entity.File) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
